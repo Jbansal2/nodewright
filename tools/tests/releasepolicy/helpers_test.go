@@ -37,6 +37,7 @@
 package releasepolicy
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -120,10 +121,29 @@ type CompositeAction struct {
 
 // Job is one workflow job.
 type Job struct {
-	Name    string    `yaml:"name"`
-	Outputs stringMap `yaml:"outputs"`
-	Env     stringMap `yaml:"env"`
-	Steps   Steps     `yaml:"steps"`
+	Name    string     `yaml:"name"`
+	If      string     `yaml:"if"`
+	Needs   stringList `yaml:"needs"`
+	Outputs stringMap  `yaml:"outputs"`
+	Env     stringMap  `yaml:"env"`
+	Steps   Steps      `yaml:"steps"`
+}
+
+// stringList decodes a field GitHub Actions accepts as either one string or a
+// list of them, such as `needs: build` and `needs: [build, test]`.
+type stringList []string
+
+func (l *stringList) UnmarshalYAML(node *yaml.Node) error {
+	if node.Kind == yaml.ScalarNode {
+		*l = stringList{node.Value}
+		return nil
+	}
+	var values []string
+	if err := node.Decode(&values); err != nil {
+		return fmt.Errorf("decoding a string or list of strings at line %d: %w", node.Line, err)
+	}
+	*l = values
+	return nil
 }
 
 // Workflow is a workflow YAML file.
